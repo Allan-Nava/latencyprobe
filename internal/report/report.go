@@ -49,3 +49,37 @@ func JSON(w io.Writer, r *finding.Result) error {
 	e.SetIndent("", "  ")
 	return e.Encode(r)
 }
+
+var mdGlyph = map[finding.Status]string{
+	finding.OK:    "🟢 OK",
+	finding.WARN:  "🟡 WARN",
+	finding.BAD:   "🔴 BAD",
+	finding.ERROR: "⚫ ERROR",
+}
+
+// Markdown writes a table, for a GitHub job summary or a pull-request comment.
+func Markdown(w io.Writer, r *finding.Result) {
+	c := r.Count()
+	fmt.Fprintf(w, "### latencyprobe — %s\n\n", mdEscape(r.Source))
+	if r.Playlist != "" && r.Playlist != r.Source {
+		fmt.Fprintf(w, "Media playlist: `%s`\n\n", r.Playlist)
+	}
+	fmt.Fprintf(w, "**%d BAD · %d WARN · %d OK · %d ERROR** — %d requests in %.1fs\n\n",
+		c[finding.BAD], c[finding.WARN], c[finding.OK], c[finding.ERROR], r.Requests, r.Seconds)
+	fmt.Fprintln(w, "| Status | Check | Finding | Rule |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, f := range r.Findings {
+		msg := mdEscape(f.Message)
+		if f.Hint != "" && f.Status != finding.OK {
+			msg += "<br>↳ " + mdEscape(f.Hint)
+		}
+		fmt.Fprintf(w, "| %s | `%s` | %s | %s |\n", mdGlyph[f.Status], f.Check, msg, f.Rule)
+	}
+	fmt.Fprintln(w, "\nRules cite draft-pantos-hls-rfc8216bis-22; B.1 is its low-latency server profile.")
+}
+
+// mdEscape keeps a message inside its table cell: a pipe ends the cell and a
+// newline ends the row, and a URL from a playlist can carry either.
+func mdEscape(s string) string {
+	return strings.NewReplacer("|", `\|`, "\n", " ", "<", "&lt;", ">", "&gt;").Replace(s)
+}

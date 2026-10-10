@@ -66,7 +66,14 @@ go install github.com/Allan-Nava/latencyprobe/cmd/latencyprobe@latest
 ```
 
 or a binary for Linux, macOS or Windows from
-[Releases](https://github.com/Allan-Nava/latencyprobe/releases).
+[Releases](https://github.com/Allan-Nava/latencyprobe/releases), or the image:
+
+```bash
+docker run --rm ghcr.io/allan-nava/latencyprobe https://cdn.example/live/master.m3u8
+```
+
+Multi-arch (amd64, arm64), no shell, non-root, built from the same binaries as the
+release archives.
 
 ## Usage
 
@@ -75,10 +82,37 @@ latencyprobe https://cdn.example/live/master.m3u8              # first variant, 
 latencyprobe --variant 2 --duration 2m https://cdn.example/live/master.m3u8
 latencyprobe --format json https://cdn.example/live/720p.m3u8
 latencyprobe --exit-on bad https://cdn.example/live/master.m3u8  # gate CI or a deploy
+latencyprobe --format markdown https://cdn.example/live/master.m3u8 >> report.md
 ```
 
 Exit status is 0 whenever the probe ran, findings or not; `--exit-on warn|bad|error`
 turns findings into exit 1. 2 is a usage error.
+
+## In GitHub Actions
+
+Gate a deploy, or watch an origin on a schedule, and get the report in the job
+summary:
+
+```yaml
+- uses: Allan-Nava/latencyprobe@v0.2.0
+  with:
+    url: https://cdn.example/live/master.m3u8
+    duration: 60s
+    exit-on: bad        # fail the job on a broken MUST; empty never fails it
+```
+
+| Input | Default | |
+|---|---|---|
+| `url` | — | the live Media or Multivariant Playlist |
+| `duration` | `30s` | how long to follow the live edge |
+| `exit-on` | empty | `warn`, `bad` or `error` fails the job |
+| `format` | `markdown` | `markdown` (rendered in the summary), `text` or `json` |
+| `args` | empty | further flags, verbatim — `--variant 2` |
+| `version` | `latest` | the release to install; pin it for a reproducible job |
+
+Outputs: `report` (the path of the report file) and `exit-code`. The action is
+composite — it downloads the release binary for the runner, checks it against
+`checksums.txt` and runs it, on Linux and macOS runners, with no image to pull.
 
 ## What it checks
 

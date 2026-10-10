@@ -33,7 +33,7 @@ followed unless --variant says otherwise).
 Flags:
   --duration D     follow the live edge with blocking reloads for D (default 30s)
   --variant N      which variant of a multivariant playlist to follow (default 0)
-  --format F       text (default) or json
+  --format F       text (default), json or markdown
   --exit-on S      exit 1 when a finding reaches warn|bad|error (default: never)
   --version        print the version
 
@@ -73,8 +73,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "latencyprobe takes one playlist URL, got %d\n\n%s", fs.NArg(), usage)
 		return 2
 	}
-	if *format != "text" && *format != "json" {
-		fmt.Fprintf(stderr, "--format must be text or json, got %q\n", *format)
+	if *format != "text" && *format != "json" && *format != "markdown" {
+		fmt.Fprintf(stderr, "--format must be text, json or markdown, got %q\n", *format)
 		return 2
 	}
 	threshold := finding.Status(strings.ToUpper(*exitOn))
@@ -98,12 +98,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Variant:  *variant,
 		Client:   &http.Client{Transport: http.DefaultTransport},
 	})
-	if *format == "json" {
+	switch *format {
+	case "json":
 		if err := report.JSON(stdout, r); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 2
 		}
-	} else {
+	case "markdown":
+		report.Markdown(stdout, r)
+	default:
 		report.Text(stdout, r)
 	}
 	if *exitOn != "" && finding.AtLeast(r.Worst(), threshold) {

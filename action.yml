@@ -1,0 +1,149 @@
+name: latencyprobe
+description: Check how a live origin answers a low-latency HLS player — blocking reloads, delta updates, rendition reports, delivery latency.
+author: Allan Nava
+
+branding:
+  icon: clock
+  color: green
+
+# A composite action, not a Docker one: a Docker action runs only on Linux
+# runners and pulls an image on every job, while latencyprobe is one static
+# binary — downloading and verifying it is the whole install.
+#
+# The flags are passed through `args` verbatim rather than mirrored as inputs,
+# so this file cannot drift from the CLI. Gating is latencyprobe's own
+# --exit-on: a probe that ran is a success unless that says otherwise.
+
+inputs:
+  url:
+    description: The live Media or Multivariant Playlist URL to probe.
+    required: true
+  duration:
+    description: How long to follow the live edge, as a Go duration (e.g. 30s, 2m).
+    required: false
+    default: 30s
+  exit-on:
+    description: Fail the job when a finding reaches warn, bad or error. Empty never fails it.
+    required: false
+    default: ""
+  format:
+    description: markdown (default, rendered in the job summary), text or json.
+    required: false
+    default: markdown
+  args:
+    description: Further latencyprobe flags, verbatim — e.g. "--variant 2".
+    required: false
+    default: ""
+  summary:
+    description: Write the report to the job summary (markdown and text only).
+    required: false
+    default: "true"
+  version:
+    description: Release to install — a tag such as "v0.2.0", or "latest". Pin it for a reproducible job.
+    required: false
+    default: latest
+  binary:
+    description: Path to a latencyprobe binary to run instead of installing a release — for testing this action against unreleased code.
+    required: false
+    default: ""
+
+outputs:
+  report:
+    description: Path of the file the report was written to.
+    value: ${{ steps.probe.outputs.report }}
+  exit-code:
+    description: latencyprobe's exit code — 0 unless --exit-on fired or the run itself failed.
+    value: ${{ steps.probe.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install latencyprobe
+      shell: bash
+      env:
+        LP_VERSION: ${{ inputs.version }}
+        LP_BINARY: ${{ inputs.binary }}
+      run: |
+        set -euo pipefail
+        if [ -n "$LP_BINARY" ]; then
+          install -m 0755 "$LP_BINARY" "$RUNNER_TEMP/latencyprobe"
+          "$RUNNER_TEMP/latencyprobe" --version
+          exit 0
+        fi
+        case "$RUNNER_OS" in
+          Linux) os=linux ;;
+          macOS) os=darwin ;;
+          *) echo "::error::the latencyprobe action runs on Linux and macOS runners, not $RUNNER_OS"; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64) arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::no latencyprobe build for $RUNNER_ARCH"; exit 1 ;;
+        esac
+        repo=Allan-Nava/latencyprobe
+        tag="$LP_VERSION"
+        if [ "$tag" = latest ]; then
+          # The /releases/latest redirect names the tag: no token, no API quota.
+          tag=$(basename "$(curl -sSLo /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest")")
+          echo "latest is $tag"
+        fi
+        archive="latencyprobe_${tag#v}_${os}_${arch}.tar.gz"
+        base="https://github.com/$repo/releases/download/$tag"
+        dir="$RUNNER_TEMP/latencyprobe-install"
+        mkdir -p "$dir" && cd "$dir"
+        curl -sSfLO "$base/$archive"
+        curl -sSfLO "$base/checksums.txt"
+        # Verified before it runs: checksums.txt covers every archive, so the
+        # check is scoped to the one downloaded.
+        if command -v sha256sum >/dev/null 2>&1; then
+          grep " ${archive}\$" checksums.txt | sha256sum --check --strict -
+        else
+          grep " ${archive}\$" checksums.txt | shasum -a 256 --check --strict -
+        fi
+        tar -xzf "$archive" latencyprobe
+        install -m 0755 latencyprobe "$RUNNER_TEMP/latencyprobe"
+        "$RUNNER_TEMP/latencyprobe" --version
+
+    - name: Probe the origin
+      id: probe
+      shell: bash
+      env:
+        # Inputs reach the script through the environment, never as ${{ }} inside
+        # it: on a fork's pull request an input is attacker-controlled, and an
+        # interpolated one is a script injection. The URL most of all.
+        LP_URL: ${{ inputs.url }}
+        LP_DURATION: ${{ inputs.duration }}
+        LP_EXIT_ON: ${{ inputs.exit-on }}
+        LP_FORMAT: ${{ inputs.format }}
+        LP_ARGS: ${{ inputs.args }}
+        LP_SUMMARY: ${{ inputs.summary }}
+      run: |
+        # The runner starts this shell with -e, so a failing probe would end the
+        # script before exit-code and the summary are written: the gate is the
+        # explicit exit at the bottom, nothing earlier.
+        set +e -uo pipefail
+        case "$LP_FORMAT" in
+          json) ext=json ;;
+          markdown) ext=md ;;
+          *) ext=txt ;;
+        esac
+        report="$RUNNER_TEMP/latencyprobe-report.$ext"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+
+        set -- --duration "$LP_DURATION" --format "$LP_FORMAT"
+        [ -n "$LP_EXIT_ON" ] && set -- "$@" --exit-on "$LP_EXIT_ON"
+        # Split on purpose: args is a flag string written to be split like a shell would.
+        # shellcheck disable=SC2086
+        set -- "$@" $LP_ARGS -- "$LP_URL"
+
+        "$RUNNER_TEMP/latencyprobe" "$@" | tee "$report"
+        code=${PIPESTATUS[0]}
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+
+        if [ "$LP_SUMMARY" = true ]; then
+          case "$LP_FORMAT" in
+            markdown) cat "$report" >> "$GITHUB_STEP_SUMMARY" ;;
+            text) { echo '```'; cat "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+        fi
+        exit "$code"

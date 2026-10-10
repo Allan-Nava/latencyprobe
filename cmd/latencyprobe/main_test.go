@@ -39,3 +39,23 @@ func TestExitOnGatesOnFindings(t *testing.T) {
 		t.Fatalf("json: %v %s", err, out.String())
 	}
 }
+
+func TestMarkdownIsATable(t *testing.T) {
+	o := llhlstest.New(0.1, 4, 8, llhlstest.Faults{NoBlock: true})
+	defer o.Close()
+	var out, errb bytes.Buffer
+	if code := run([]string{"--duration", "500ms", "--format", "markdown", o.URL + "/master.m3u8"}, &out, &errb); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	s := out.String()
+	for _, want := range []string{"| Status | Check | Finding | Rule |", "| 🔴 BAD | `blocking` |", "<br>↳ "} {
+		if !strings.Contains(s, want) {
+			t.Errorf("markdown lacks %q:\n%s", want, s)
+		}
+	}
+	for _, line := range strings.Split(s, "\n") {
+		if strings.HasPrefix(line, "| ") && strings.Count(strings.ReplaceAll(line, `\|`, ""), "|") != 5 {
+			t.Errorf("row does not have four cells: %s", line)
+		}
+	}
+}
