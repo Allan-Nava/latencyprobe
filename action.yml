@@ -118,7 +118,10 @@ runs:
         LP_ARGS: ${{ inputs.args }}
         LP_SUMMARY: ${{ inputs.summary }}
       run: |
-        set -uo pipefail
+        # The runner starts this shell with -e, so a failing probe would end the
+        # script before exit-code and the summary are written: the gate is the
+        # explicit exit at the bottom, nothing earlier.
+        set +e -uo pipefail
         case "$LP_FORMAT" in
           json) ext=json ;;
           markdown) ext=md ;;

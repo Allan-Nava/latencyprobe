@@ -375,7 +375,7 @@ func (p *probe) reports(ctx context.Context, pl *playlist.Media) {
 		p.add(finding.Finding{Check: "rendition-report", Rule: "B.1", Status: finding.WARN, Message: fmt.Sprintf("%d of %d other renditions have no EXT-X-RENDITION-REPORT", missing, len(expected)), Hint: "the low-latency profile requires one per rendition; without it a client switching renditions has to run the tune-in algorithm of Appendix C"})
 	}
 	if clean {
-		p.add(finding.Finding{Check: "rendition-report", Rule: "§4.4.5.4", Status: finding.OK, Message: fmt.Sprintf("%s, each within a part of the playlist it describes", plural(int64(len(pl.Reports)), "rendition report"))})
+		p.add(finding.Finding{Check: "rendition-report", Rule: "§4.4.5.4", Status: finding.OK, Message: reportsOK(len(pl.Reports))})
 	}
 }
 
@@ -533,6 +533,13 @@ func pct(xs []float64, q float64) float64 {
 	sort.Float64s(s)
 	i := int(float64(len(s)-1) * q / 100)
 	return s[i]
+}
+
+func reportsOK(n int) string {
+	if n == 1 {
+		return "the rendition report is within a part of the playlist it describes"
+	}
+	return fmt.Sprintf("%d rendition reports, each within a part of the playlist it describes", n)
 }
 
 func plural(n int64, noun string) string {
