@@ -73,7 +73,7 @@ footer{margin-top:64px;padding-top:20px;padding-bottom:40px;border-top:1px solid
 <header>
 <img src="assets/favicon.svg" alt="">
 <b>latencyprobe</b>
-<nav><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="https://github.com/Allan-Nava/latencyprobe/releases">Releases</a><a href="https://github.com/Allan-Nava/latencyprobe">GitHub</a></nav>
+<nav><a href="#ci">CI</a><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="https://github.com/Allan-Nava/latencyprobe/releases">Releases</a><a href="https://github.com/Allan-Nava/latencyprobe">GitHub</a></nav>
 </header>
 <main>
 <section class="hero">
@@ -81,7 +81,7 @@ footer{margin-top:64px;padding-top:20px;padding-bottom:40px;border-top:1px solid
 <h1>How does your live origin answer a low-latency HLS player?</h1>
 <p class="lede">A playlist can declare <code>CAN-BLOCK-RELOAD=YES</code> while the CDN in front of it caches the playlist without its query string — and every player falls back to polling, seconds behind live. latencyprobe acts as the player, times the answers, and checks each against the HLS spec.</p>
 <div class="install"><code>go install github.com/Allan-Nava/latencyprobe/cmd/latencyprobe@latest</code><button type="button" onclick="navigator.clipboard&&navigator.clipboard.writeText('go install github.com/Allan-Nava/latencyprobe/cmd/latencyprobe@latest');this.textContent='copied'">copy</button></div>
-<p class="links">Or a static binary for Linux, macOS and Windows from <a href="https://github.com/Allan-Nava/latencyprobe/releases/latest">the latest release</a>. No ffmpeg, no cgo, no dependencies.</p>
+<p class="links">Or a static binary for Linux, macOS and Windows from <a href="https://github.com/Allan-Nava/latencyprobe/releases/latest">the latest release</a>, or <code>docker run --rm ghcr.io/allan-nava/latencyprobe &lt;url&gt;</code>. No ffmpeg, no cgo, no dependencies.</p>
 </div>
 <img src="assets/logo.svg" alt="latencyprobe logo: a stopwatch over a row of parts, the next one dashed">
 </section>
@@ -103,6 +103,15 @@ footer{margin-top:64px;padding-top:20px;padding-bottom:40px;border-top:1px solid
 <span class="o">🟢 OK</span>     cadence    a new part every 500ms (median), PART-TARGET 0.5s — in step with PART-TARGET
 <span class="o">🟢 OK</span>     edge-age   a part reaches a blocked client 302ms after its media ends (p50; p95 305ms)
 <span class="o">🟢 OK</span>     latency    a player starting at the recommended hold-back plays 1.80s behind the media's wall clock</pre>
+
+<h2 id="ci">In GitHub Actions</h2>
+<p>Gate a deploy, or watch an origin on a schedule. The report lands in the job summary as a table; <code>exit-on: bad</code> fails the job when the origin breaks a MUST.</p>
+<pre><span class="d">- uses:</span> Allan-Nava/latencyprobe@v0.2.0
+  <span class="d">with:</span>
+    url: https://cdn.example/live/master.m3u8
+    duration: 60s
+    exit-on: bad</pre>
+<p class="note">A composite action: it installs the release binary for the runner, verified against <code>checksums.txt</code> — Linux and macOS runners, no image to pull. Inputs and outputs are in the <a href="https://github.com/Allan-Nava/latencyprobe#in-github-actions">README</a>.</p>
 
 <h2 id="checks">What it checks</h2>
 <p>Every finding names the requirement it comes from in <a href="https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/">draft-pantos-hls-rfc8216bis-22</a>. A MUST the server breaks is <b>BAD</b>; a SHOULD, or the Appendix B.1 low-latency server profile, is <b>WARN</b>.</p>

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
       - name: gofmt
@@ -27,3 +27,98 @@ jobs:
       # origin serves concurrent blocking requests: -race is the point.
       - run: go test -race -count=2 ./...
       - run: CGO_ENABLED=0 go build -trimpath ./cmd/latencyprobe
+
+  # The image as a user gets it from a clone, run against a live origin on the
+  # runner: TLS store aside, a container that cannot reach the network or exits
+  # with the wrong code is caught here rather than after a release.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+      - run: docker build -t latencyprobe:ci --build-arg VERSION=ci .
+      - name: No shell, non-root, version stamped
+        run: |
+          test "$(docker run --rm latencyprobe:ci --version)" = ci
+          test "$(docker inspect -f '{{.Config.User}}' latencyprobe:ci)" = 65532:65532
+          if docker run --rm --entrypoint /bin/sh latencyprobe:ci -c true 2>/dev/null; then
+            echo "::error::the image has a shell"; exit 1
+          fi
+      - name: Against a healthy origin and a broken one
+        run: |
+          go build -o /tmp/origin ./cmd/llhls-origin
+          /tmp/origin > /tmp/good.txt & /tmp/origin --no-block > /tmp/bad.txt &
+          sleep 2
+          good=$(grep -o 'http://[^ ]*' /tmp/good.txt); bad=$(grep -o 'http://[^ ]*' /tmp/bad.txt)
+          docker run --rm --network host latencyprobe:ci --duration 5s --exit-on bad "$good"
+          if docker run --rm --network host latencyprobe:ci --duration 3s --exit-on bad "$bad"; then
+            echo "::error::--exit-on bad passed against an origin that does not block"; exit 1
+          fi
+
+  # The action end to end, on the code in this commit: a pass that must pass, and
+  # a gate that must close.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+      - name: Build, and start two origins
+        id: setup
+        run: |
+          go build -o "$RUNNER_TEMP/lp" ./cmd/latencyprobe
+          go build -o /tmp/origin ./cmd/llhls-origin
+          /tmp/origin > /tmp/good.txt & /tmp/origin --stale-cache --age > /tmp/bad.txt &
+          sleep 2
+          echo "good=$(grep -o 'http://[^ ]*' /tmp/good.txt)" >> "$GITHUB_OUTPUT"
+          echo "bad=$(grep -o 'http://[^ ]*' /tmp/bad.txt)" >> "$GITHUB_OUTPUT"
+      - id: good
+        uses: ./
+        with:
+          url: ${{ steps.setup.outputs.good }}
+          duration: 5s
+          exit-on: bad
+          binary: ${{ runner.temp }}/lp
+      - id: bad
+        uses: ./
+        continue-on-error: true
+        with:
+          url: ${{ steps.setup.outputs.bad }}
+          duration: 3s
+          exit-on: bad
+          binary: ${{ runner.temp }}/lp
+      - name: The gate closed, and the report says why
+        env:
+          OUTCOME: ${{ steps.bad.outcome }}
+          CODE: ${{ steps.bad.outputs.exit-code }}
+          REPORT: ${{ steps.bad.outputs.report }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$CODE" = 1
+          grep -q '| 🔴 BAD | `blocking` |' "$REPORT"
+          grep -q 'Age header' "$REPORT"
+
+  # goreleaser's config and the multi-arch image build, proven on every push
+  # rather than on the tag that would otherwise discover them.
+  release-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean

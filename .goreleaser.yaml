@@ -29,5 +29,27 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+# One multi-arch image, so `docker run ghcr.io/allan-nava/latencyprobe` resolves
+# on amd64 and arm64 alike, built from the binaries the archives carry.
+dockers_v2:
+  - id: latencyprobe
+    images:
+      - "ghcr.io/allan-nava/latencyprobe"
+    tags:
+      - "{{ .Version }}"
+      - '{{ if not .Prerelease }}latest{{ end }}'
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    dockerfile: Dockerfile.release
+    labels:
+      org.opencontainers.image.title: latencyprobe
+      org.opencontainers.image.description: How a live origin answers a low-latency HLS player
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.source: https://github.com/Allan-Nava/latencyprobe
+      org.opencontainers.image.licenses: MIT
+
 changelog:
   use: github
