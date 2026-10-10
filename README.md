@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="latencyprobe" width="96" height="96">
+</p>
+
 <h1 align="center">latencyprobe</h1>
 
 <p align="center"><strong>How does your live origin answer a low-latency HLS player — not what the playlist claims.</strong></p>
+
+<p align="center"><a href="https://allan-nava.github.io/latencyprobe/">allan-nava.github.io/latencyprobe</a></p>
 
 <p align="center">
   <a href="https://github.com/Allan-Nava/latencyprobe/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Allan-Nava/latencyprobe/actions/workflows/ci.yml/badge.svg"></a>

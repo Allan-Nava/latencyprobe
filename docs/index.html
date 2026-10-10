@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>latencyprobe — how a live origin answers a low-latency HLS player</title>
+<meta name="description" content="latencyprobe acts as a low-latency HLS player towards a live origin: blocking playlist reloads, delta updates, rendition reports and part delivery latency, each checked against draft-pantos-hls-rfc8216bis. One static Go binary, zero dependencies.">
+<meta name="author" content="Allan Nava">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#0b1120" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<link rel="canonical" href="https://allan-nava.github.io/latencyprobe/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="latencyprobe">
+<meta property="og:title" content="latencyprobe — how a live origin answers a low-latency HLS player">
+<meta property="og:description" content="Blocking reloads, delta updates, rendition reports and delivery latency, checked against the HLS spec. One static Go binary, zero dependencies.">
+<meta property="og:url" content="https://allan-nava.github.io/latencyprobe/">
+<meta property="og:image" content="https://allan-nava.github.io/latencyprobe/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="latencyprobe — a terminal showing blocking reloads that came back without the requested part">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="latencyprobe — how a live origin answers a low-latency HLS player">
+<meta name="twitter:image" content="https://allan-nava.github.io/latencyprobe/assets/og-card.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"latencyprobe","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Windows","description":"Acts as a low-latency HLS player towards a live origin and checks blocking reloads, delta updates, rendition reports and delivery latency against draft-pantos-hls-rfc8216bis.","url":"https://allan-nava.github.io/latencyprobe/","codeRepository":"https://github.com/Allan-Nava/latencyprobe","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"Allan Nava","url":"https://github.com/Allan-Nava"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<style>
+:root{--bg:#0b1120;--surface:#111c34;--code:#0d1626;--border:rgba(148,163,184,.16);--text:#dbe4f0;--muted:#93a4bd;--heading:#f1f5f9;--brand:#10b981;--link:#34d399;--ok:#34d399;--warn:#fbbf24;--bad:#f87171;--glow:radial-gradient(900px 420px at 12% -10%,rgba(16,185,129,.16),transparent 70%)}
+@media (prefers-color-scheme:light){:root{--bg:#ffffff;--surface:#f4f7fb;--code:#0d1626;--border:rgba(15,23,42,.12);--text:#33415c;--muted:#64748b;--heading:#0f172a;--brand:#059669;--link:#047857;--glow:radial-gradient(900px 420px at 12% -10%,rgba(16,185,129,.10),transparent 70%)}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--glow),var(--bg);color:var(--text);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--link)}
+main,header,footer{max-width:960px;margin:0 auto;padding:0 16px}
+header{display:flex;align-items:center;gap:12px;padding-top:20px;padding-bottom:20px}
+header img{width:32px;height:32px}
+header b{color:var(--heading);font-size:17px}
+header nav{margin-left:auto;display:flex;gap:16px;font-size:14px}
+header nav a{color:var(--muted);text-decoration:none}
+header nav a:hover{color:var(--link)}
+.hero{display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center;padding:40px 0 24px}
+.hero img{width:168px;height:168px}
+h1{color:var(--heading);font-size:clamp(32px,5.5vw,50px);line-height:1.08;letter-spacing:-.02em;margin:0 0 14px}
+.lede{font-size:19px;color:var(--muted);margin:0 0 24px;max-width:640px}
+.install{display:flex;align-items:center;gap:10px;background:var(--code);color:#cfe3dc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;max-width:100%;overflow-x:auto}
+.install code{white-space:nowrap;flex:1}
+.install button{font:inherit;font-size:12px;background:none;color:#93a4bd;border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:3px 9px;cursor:pointer}
+.links{margin:14px 0 0;font-size:14px;color:var(--muted)}
+pre{background:var(--code);color:#cfe3dc;border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:0}
+pre .b{color:#f87171}pre .o{color:#34d399}pre .h{color:#93a4bd}pre .d{color:#64748b}
+h2{color:var(--heading);font-size:24px;margin:52px 0 12px;letter-spacing:-.01em}
+.note{color:var(--muted);font-size:14px;margin:10px 0 0}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:500;font-size:13px}
+td code,p code,li code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+td:first-child{white-space:nowrap}
+.rule{white-space:nowrap;color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.card h3{margin:0 0 6px;color:var(--heading);font-size:16px}
+.card p{margin:0;font-size:15px}
+footer{margin-top:64px;padding-top:20px;padding-bottom:40px;border-top:1px solid var(--border);color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:18px}
+.hero>div{min-width:0}
+@media (max-width:640px){.hero{grid-template-columns:1fr;padding-top:20px}.hero img{display:none}header nav a:not(:last-child){display:none}.lede{font-size:17px}}
+</style>
+</head>
+<body>
+<header>
+<img src="assets/favicon.svg" alt="">
+<b>latencyprobe</b>
+<nav><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="https://github.com/Allan-Nava/latencyprobe/releases">Releases</a><a href="https://github.com/Allan-Nava/latencyprobe">GitHub</a></nav>
+</header>
+<main>
+<section class="hero">
+<div>
+<h1>How does your live origin answer a low-latency HLS player?</h1>
+<p class="lede">A playlist can declare <code>CAN-BLOCK-RELOAD=YES</code> while the CDN in front of it caches the playlist without its query string — and every player falls back to polling, seconds behind live. latencyprobe acts as the player, times the answers, and checks each against the HLS spec.</p>
+<div class="install"><code>go install github.com/Allan-Nava/latencyprobe/cmd/latencyprobe@latest</code><button type="button" onclick="navigator.clipboard&&navigator.clipboard.writeText('go install github.com/Allan-Nava/latencyprobe/cmd/latencyprobe@latest');this.textContent='copied'">copy</button></div>
+<p class="links">Or a static binary for Linux, macOS and Windows from <a href="https://github.com/Allan-Nava/latencyprobe/releases/latest">the latest release</a>. No ffmpeg, no cgo, no dependencies.</p>
+</div>
+<img src="assets/logo.svg" alt="latencyprobe logo: a stopwatch over a row of parts, the next one dashed">
+</section>
+
+<pre><span class="d">$</span> latencyprobe https://cdn.example/live/master.m3u8
+
+<span class="b">🔴 BAD</span>    server-control    PART-HOLD-BACK=0.8s is below twice PART-TARGET (1s)  <span class="h">[§4.4.3.8]</span>
+<span class="b">🔴 BAD</span>    delta             _HLS_skip=YES returned a full playlist (16s listed, Skip Boundary 12s)  <span class="h">[§6.2.5.1]</span>
+<span class="b">🔴 BAD</span>    blocking          12 of 12 blocking reloads came back without the requested part  <span class="h">[§6.2.5.2]</span>
+                           <span class="h">↳ 12 of those responses carried an Age header: a cache is answering, most likely
+                             keyed without the query string, so _HLS_msn and _HLS_part never reach the origin</span>
+<span class="o">🟢 OK</span>     bad-request       _HLS_part without _HLS_msn is refused with 400  <span class="h">[§6.2.5.2]</span>
+
+6 findings: 3 OK, 0 WARN, 3 BAD, 0 ERROR — 19 requests in 6.2s</pre>
+<p class="note">From <code>llhls-origin</code>, the local test origin in the repository, with the cache fault switched on — no public low-latency HLS stream was reachable to show instead.</p>
+
+<h2>A healthy origin, measured</h2>
+<pre><span class="o">🟢 OK</span>     blocking   21 blocking reloads, each answered with the requested part; wait p50 499ms, p95 504ms
+<span class="o">🟢 OK</span>     cadence    a new part every 500ms (median), PART-TARGET 0.5s — in step with PART-TARGET
+<span class="o">🟢 OK</span>     edge-age   a part reaches a blocked client 302ms after its media ends (p50; p95 305ms)
+<span class="o">🟢 OK</span>     latency    a player starting at the recommended hold-back plays 1.80s behind the media's wall clock</pre>
+
+<h2 id="checks">What it checks</h2>
+<p>Every finding names the requirement it comes from in <a href="https://datatracker.ietf.org/doc/draft-pantos-hls-rfc8216bis/">draft-pantos-hls-rfc8216bis-22</a>. A MUST the server breaks is <b>BAD</b>; a SHOULD, or the Appendix B.1 low-latency server profile, is <b>WARN</b>.</p>
+<div class="wrap"><table>
+<thead><tr><th>Check</th><th>What latencyprobe does</th><th>Rule</th></tr></thead>
+<tbody>
+<tr><td><code>blocking</code></td><td>Follows the live edge with <code>_HLS_msn</code> / <code>_HLS_part</code> requests, as a player does. A response without the requested part means the origin is not blocking — or a cache ignores the query string, which the <code>Age</code> header gives away.</td><td class="rule">§6.2.5.2</td></tr>
+<tr><td><code>delta</code></td><td><code>_HLS_skip=YES</code> must return a delta update past the Skip Boundary, skip only beyond it, and line <code>SKIPPED-SEGMENTS</code> up with the full playlist.</td><td class="rule">§6.2.5.1, §4.4.5.2</td></tr>
+<tr><td><code>rendition-report</code></td><td>Each report against the rendition it describes, fetched straight after: not ahead of it, not a segment behind; one per other rendition.</td><td class="rule">§4.4.5.4, B.1</td></tr>
+<tr><td><code>bad-request</code></td><td><code>_HLS_part</code> without <code>_HLS_msn</code> must get 400; an <code>_HLS_msn</code> far past the edge should get an immediate 400, not a hang.</td><td class="rule">§6.2.5.2</td></tr>
+<tr><td><code>server-control</code></td><td><code>HOLD-BACK</code>, <code>PART-HOLD-BACK</code> and <code>CAN-SKIP-UNTIL</code> against the minimums the spec states.</td><td class="rule">§4.4.3.8</td></tr>
+<tr><td><code>cadence</code></td><td>How often a new part actually arrives, against <code>PART-TARGET</code>.</td><td class="rule"></td></tr>
+<tr><td><code>edge-age</code></td><td>How long after its media ends, by <code>EXT-X-PROGRAM-DATE-TIME</code>, a part reaches a blocked client.</td><td class="rule"></td></tr>
+<tr><td><code>latency</code></td><td>What a player at the recommended hold-back actually plays behind wall clock.</td><td class="rule"></td></tr>
+</tbody></table></div>
+
+<h2 id="limits">Limits, stated</h2>
+<div class="grid">
+<div class="card"><h3>Clocks</h3><p><code>edge-age</code> compares the packager's clock with yours. latencyprobe warns when the server's <code>Date</code> is more than 1.5 s off; inside that, run it from an NTP-synced machine.</p></div>
+<div class="card"><h3>One vantage point</h3><p>It measures the path from where it runs. A CDN edge near you can behave differently from one elsewhere — run it from where your viewers are.</p></div>
+<div class="card"><h3>Playlists, not media</h3><p>Whether the parts contain what the playlist says is a different question. <a href="https://allan-nava.github.io/segcheck/">segcheck</a> downloads the segments and parts and answers it.</p></div>
+</div>
+
+<h2>Try it without an origin</h2>
+<pre><span class="d">$</span> go run ./cmd/llhls-origin --stale-cache --age     <span class="h"># a CDN keyed without the query string</span>
+<span class="d">$</span> go run ./cmd/llhls-origin --lag 300ms             <span class="h"># each part listed 300 ms late</span>
+<span class="d">$</span> latencyprobe http://127.0.0.1:&lt;port&gt;/master.m3u8</pre>
+<p class="note">The same origin runs in the tests, where each fault is switched on and the finding it should cause is asserted.</p>
+</main>
+<footer>
+<a href="https://github.com/Allan-Nava/latencyprobe">GitHub</a>
+<a href="https://github.com/Allan-Nava/latencyprobe/releases">Releases</a>
+<a href="https://allan-nava.github.io/segcheck/">segcheck</a>
+<span>MIT · by <a href="https://github.com/Allan-Nava">Allan Nava</a></span>
+</footer>
+</body>
+</html>

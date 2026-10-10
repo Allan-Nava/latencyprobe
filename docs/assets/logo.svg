@@ -1,0 +1,45 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="latencyprobe logo">
+  <defs>
+    <linearGradient id="lp-bg" x1="64" y1="24" x2="448" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#17274a"/>
+      <stop offset="0.55" stop-color="#0e1830"/>
+      <stop offset="1" stop-color="#0a1020"/>
+    </linearGradient>
+    <linearGradient id="lp-rim" x1="256" y1="8" x2="256" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lp-ring" x1="110" y1="120" x2="400" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="lp-hand" x1="256" y1="290" x2="338" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset="0.55" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app-icon plate: the same family as segcheck and checkfleet -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#lp-bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#lp-rim)"/>
+  <rect x="8.75" y="8.75" width="494.5" height="494.5" rx="115.25" fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="1.5"/>
+
+  <!-- the stopwatch: latency is a time, measured -->
+  <rect x="222" y="66" width="68" height="34" rx="12" fill="url(#lp-ring)"/>
+  <rect x="244" y="94" width="24" height="34" rx="6" fill="url(#lp-ring)"/>
+  <rect x="362" y="128" width="40" height="26" rx="10" fill="url(#lp-ring)" transform="rotate(45 382 141)"/>
+  <circle cx="256" cy="290" r="158" stroke="url(#lp-ring)" stroke-width="36"/>
+
+  <!-- the parts already published, and the next one the server must hold the request for -->
+  <g fill="#2dd4bf" fill-opacity="0.9">
+    <rect x="164" y="338" width="40" height="34" rx="9"/>
+    <rect x="212" y="338" width="40" height="34" rx="9"/>
+    <rect x="260" y="338" width="40" height="34" rx="9"/>
+  </g>
+  <rect x="311.5" y="341.5" width="33" height="27" rx="7" fill="none" stroke="#f59e0b" stroke-width="7" stroke-dasharray="11 7"/>
+
+  <!-- the hand: the verdict -->
+  <path d="M256 290 L338 186" stroke="url(#lp-hand)" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="256" cy="290" r="26" fill="#10b981"/>
+</svg>
